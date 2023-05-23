@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="ja">
+    <head>
+        <meta charset="UTF-8" />
+        <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>webrtc</title>
+    </head>
+    <body>
+        <video id="video" autoplay></video>
+
+        <script>
+            const viewerConnection = new RTCPeerConnection();
+
+            // SDP の設定
+            const offer = window.prompt(
+                "sender 側から送られてくる SDP offer を入力してください"
+            );
+
+            if (!offer) {
+                throw new Error("offerがないのは不正です");
+            }
+
+            viewerConnection
+                .setRemoteDescription(JSON.parse(offer))
+                .then(() => {
+                    return viewerConnection.createAnswer();
+                })
+                .then((answer) => {
+                    return viewerConnection.setLocalDescription(answer);
+                })
+                .then(() => {
+                    console.log(
+                        JSON.stringify(viewerConnection.localDescription)
+                    );
+                    alert(
+                        "viewer の SDP answer を log に出力しました。これを viewer の SDP description として sender 側に入力してください。"
+                    );
+                })
+                .then(() => {
+                    const senderIceStr = window.prompt(
+                        "sender が提示するICEを入力してください"
+                    );
+                    if (!senderIceStr) {
+                        throw new Error("sdpAnswer がないのは不正です");
+                    }
+
+                    /**
+                     * ICE Candidatesを受け取る
+                     * @type {RTCIceCandidateInit[]}
+                     */
+                    const senderCandidates = JSON.parse(senderIceStr);
+                    senderCandidates.forEach((candidate) => {
+                        if (candidate === null) return;
+                        viewerConnection
+                            .addIceCandidate(candidate)
+                            .catch((e) => {
+                                console.error(
+                                    "Sender addIceCandidate error",
+                                    e
+                                );
+                            });
+                    });
+                });
+
+            const videoEl = document.getElementById("video");
+
+            if (videoEl === null || !(videoEl instanceof HTMLVideoElement))
+                throw new Error("video element not found");
+
+            viewerConnection.ontrack = (e) => {
+                const stream = event.streams[0];
+                if (stream === undefined) {
+                    console.error("stream not found");
+                    throw new Error("");
+                }
+
+                videoEl.srcObject = stream;
+            };
+        </script>
+    </body>
+</html>
